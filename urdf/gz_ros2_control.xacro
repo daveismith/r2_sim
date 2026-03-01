@@ -64,8 +64,11 @@
 
         <gazebo>
             <plugin name="gz_ros2_control::GazeboSimROS2ControlPlugin" filename="libgz_ros2_control-system.so">
-                <parameters>$(find r2_sim)/config/my_controllers.yaml</parameters>
+                <parameters>$(find r2_bringup)/config/my_controllers.yaml</parameters>
                 <parameters>$(find r2_sim)/config/gaz_ros2_ctl_use_sim.yaml</parameters>
+            </plugin>
+
+            <plugin name="gz::sim::systems::JointStatePublisher" filename="gz-sim-joint-state-publisher-system">
             </plugin>
         </gazebo>        
     </xacro:if>
