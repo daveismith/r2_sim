@@ -21,6 +21,7 @@ def generate_launch_description():
     bringup_package_name = 'r2_bringup'
     description_package_name = 'r2_description'
     package_name='r2_sim'
+    web_package_name = 'r2_web_interface'
 
     rsp = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
@@ -102,6 +103,12 @@ def generate_launch_description():
                 )]), launch_arguments={'use_sim_time': 'true'}.items()
     )
 
+    web_interface = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([os.path.join(
+                    get_package_share_directory(web_package_name),'launch','web_interface.launch.py'
+                )]), launch_arguments={'use_sim_time': 'true', 'robot_mode': 'sim'}.items()
+    )
+
     angle = 18
     rads = radians(angle)
 
@@ -165,6 +172,7 @@ def generate_launch_description():
         TimerAction(period=5.0, actions=[dome_controller_spawner]),
         #TimerAction(period=2.5, actions=[joint_broad_spawner]),
         dome_teleop,
+        web_interface,
         ros_gz_bridge,
         ros_gz_image_bridge,
         TimerAction(period=10.0, actions=[set_angles])
