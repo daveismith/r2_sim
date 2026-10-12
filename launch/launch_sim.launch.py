@@ -4,7 +4,8 @@ from ament_index_python.packages import get_package_share_directory
 
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, TimerAction
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
@@ -22,6 +23,7 @@ def generate_launch_description():
     description_package_name = 'r2_description'
     package_name='r2_sim'
     web_package_name = 'r2_web_interface'
+    worlds_package_name = 'gazebo_models_worlds_collection'
 
     rsp = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
@@ -43,11 +45,11 @@ def generate_launch_description():
             remappings=[('/cmd_vel_out','/diff_cont/cmd_vel')]
         )
 
-
     default_world = os.path.join(
         get_package_share_directory(package_name),
         'worlds',
         'obstacles.world'
+        #'office_env_large.world'
         )    
     
     world = LaunchConfiguration('world')
@@ -103,6 +105,12 @@ def generate_launch_description():
                 )]), launch_arguments={'use_sim_time': 'true'}.items()
     )
 
+    joint_states = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([os.path.join(
+                    get_package_share_directory(bringup_package_name),'launch','joint_states.launch.py'
+                )]), launch_arguments={'use_sim_time': 'true'}.items()
+    )
+
     web_interface = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory(web_package_name),'launch','web_interface.launch.py'
@@ -141,22 +149,34 @@ def generate_launch_description():
 
 
 
-    # Code for delaying a node (I haven't tested how effective it is)
-    # 
-    # First add the below lines to imports
-    # from launch.actions import RegisterEventHandler
-    # from launch.event_handlers import OnProcessExit
-    #
-    # Then add the following below the current diff_drive_spawner
-    # delayed_diff_drive_spawner = RegisterEventHandler(
-    #     event_handler=OnProcessExit(
-    #         target_action=spawn_entity,
-    #         on_exit=[diff_drive_spawner],
-    #     )
-    # )
-    #
-    # Replace the diff_drive_spawner in the final return with delayed_diff_drive_spawner
+    # Start controllers in the same order as the real robot: the gz_ros2_control
+    # controller_manager comes up once the model is spawned, then joint_broad,
+    # then the remaining controllers.
+    delayed_joint_broad_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=spawn_entity,
+            on_exit=[joint_broad_spawner],
+        )
+    )
 
+    delayed_controller_spawners = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_broad_spawner,
+            on_exit=[
+                diff_drive_spawner,
+                dome_controller_spawner,
+                ankle_pos_spawner,
+            ],
+        )
+    )
+
+    # Only command the leg pose once ankle_pos is active
+    delayed_set_angles = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=ankle_pos_spawner,
+            on_exit=[set_angles],
+        )
+    )
 
 
     # Launch them all!
@@ -167,13 +187,12 @@ def generate_launch_description():
         world_arg,
         gazebo,
         spawn_entity,
-        TimerAction(period=5.0, actions=[diff_drive_spawner]),
-        TimerAction(period=5.0, actions=[ankle_pos_spawner]),
-        TimerAction(period=5.0, actions=[dome_controller_spawner]),
-        #TimerAction(period=2.5, actions=[joint_broad_spawner]),
+        delayed_joint_broad_spawner,
+        delayed_controller_spawners,
+        delayed_set_angles,
+        joint_states,
         dome_teleop,
         web_interface,
         ros_gz_bridge,
         ros_gz_image_bridge,
-        TimerAction(period=10.0, actions=[set_angles])
     ])

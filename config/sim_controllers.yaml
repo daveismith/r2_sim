@@ -1,0 +1,17 @@
+# Sim-specific overrides, loaded after r2_bringup/config/my_controllers.yaml.
+#
+# The sim model can't represent the closed leg/shoulder loop, so left_shoulder_joint
+# doesn't exist and the ankle/center foot joints are real (non-mimic) joints driven
+# by ankle_pos. Publish the joints that actually exist in sim.
+joint_broad:
+  ros__parameters:
+    joints:
+      - left_wheel_joint
+      - right_wheel_joint
+      - left_ankle_joint
+      - right_ankle_joint
+      - center_foot_joint
+      - right_shoulder_joint
+      - dome_joint
+    interfaces:
+      - position
