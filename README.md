@@ -102,7 +102,7 @@ Check that the device is present with `ros2 node list`, which should show `/r2_d
 ## Debugging and logs
 
 - Use `ros2 topic list` and `ros2 node info` to inspect running topics and nodes.
-- `ros2 control list_controllers` shows whether `joint_broad`, `diff_cont`, `dome_controller`, `ankle_pos` and `servo_pos` are active.
+- `ros2 control list_controllers` shows whether `joint_broad`, `dome_state_broadcaster`, `diff_cont`, `dome_controller`, `ankle_pos` and `servo_pos` are active.
 - Simulator logs are printed to the terminal where the simulation is launched.
 - If controllers fail to start, examine the controller manager logs and the parameter YAML files in `config/`.
 

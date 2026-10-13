@@ -100,6 +100,12 @@ def generate_launch_description():
         arguments=["dome_controller"],
     )
 
+    dome_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["dome_state_broadcaster"],
+    )
+
     servo_pos_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -216,6 +222,7 @@ def generate_launch_description():
                 dome_controller_spawner,
                 ankle_pos_spawner,
                 servo_pos_spawner,
+                dome_state_broadcaster_spawner,
             ],
         )
     )
