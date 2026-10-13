@@ -70,6 +70,9 @@ class ServoSim(Node):
         # Emulator: joint -> (lower, upper) and commanded targets, filled from the URDF
         self.limits = {}
         self.targets = {}
+        # (joint, reason) refusals already logged: tools like joint_state_publisher_gui
+        # send every joint at 10 Hz, so each refusal is logged only the first time
+        self.refused = set()
         # joint -> when another publisher last reported it (wall clock: the device runs
         # on real time, whatever the sim's real-time factor), and the joints muted now
         self.claimed = {}
@@ -144,7 +147,9 @@ class ServoSim(Node):
             key = joint_key(name)
             if key not in self.limits:
                 reason = 'unknown joint' if self.limits else 'no joint limits'
-                self.get_logger().warn(f'{name}: refused, {reason}')
+                if (key, reason) not in self.refused:
+                    self.refused.add((key, reason))
+                    self.get_logger().warn(f'{name}: refused, {reason} (logged once)')
                 continue
             lower, upper = self.limits[key]
             position = min(max(msg.position[i], lower), upper)
