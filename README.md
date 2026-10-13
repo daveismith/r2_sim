@@ -1,62 +1,120 @@
 # r2_sim — Simulation components for the R2 robot
 
-This repository folder contains the simulation-only portions of the larger R2 ROS 2 project. It provides launch files, robot descriptions, world files, and any simulation-specific nodes or configuration needed to run the R2 robot in a simulator (Gazebo, Ignition, or another supported backend).
+This package contains the simulation-only parts of the R2 ROS 2 project: the Gazebo launch, the `gz_ros2_control` hardware description, worlds, and sim-specific nodes and configuration. It uses the same description (`r2_description`), controllers and topics as the real robot (`r2_bringup`), with `gz_ros2_control` in place of the hardware interfaces.
 
 ## Contents
 
-- `launch/` — Launch files to start the simulator, robot state publishers, controllers, and related tooling.
-- `worlds/` or `world/` — Example simulation worlds and environments.
-- `models/` or `urdf/` — Robot models, meshes and URDF/xacro descriptions used in simulation.
-- `config/` — Simulation configuration (controller parameters, sensor configs, etc.).
-
-Not every subfolder is required; see the package layout in this workspace for actual structure.
+- `launch/launch_sim.launch.py` — starts Gazebo, spawns the robot, starts the controllers, and runs the shared bringup pieces (joystick, twist_mux, dome teleop, joint states, web interface).
+- `urdf/gz_ros2_control.xacro` — the sim `<ros2_control>` block and the `gz_ros2_control` plugin, included by `r2_bringup`'s `robot.urdf.xacro` when `sim_mode` is true.
+- `config/sim_controllers.yaml` — sim overrides on top of `r2_bringup/config/my_controllers.yaml`, including the `servo_pos` joint list (body panels and utility arms).
+- `config/dome_servos.yaml` — the dome panel joints and their speeds in Gazebo.
+- `config/gz_bridge.yaml` — topics bridged between Gazebo and ROS.
+- `worlds/` — simulation worlds (`obstacles.world` is the default, `empty.world`).
+- `r2_sim/servo_sim.py` — servo mirror and emulator (see [Servo joints](#servo-joints)).
 
 ## Requirements
 
-- A working ROS 2 installation that matches this workspace (source the appropriate `setup.bash`).
+- A working ROS 2 Jazzy installation and the per-machine workspace `setup.bash` (see the `r2_bringup` README).
 - `colcon` for building the workspace.
-- Simulator runtime (e.g., Gazebo or Ignition) if using physics-based simulation.
+- Gazebo with `ros_gz_sim`, `ros_gz_bridge` and `gz_ros2_control`.
 
 ## Build & setup
 
-From the workspace root (one level above `src/`):
+Build from the workspace root (one level above `src/`), always with `--symlink-install`:
 
 ```bash
-# Build only the simulation package (recommended while developing)
-colcon build --packages-select r2_sim
-
-# Source the overlay after build
-source install/setup.bash
+cd /home/davids/r2_ws
+source ./setup.bash
+colcon build --symlink-install --packages-select r2_sim
 ```
 
-If you prefer to build the entire workspace, run `colcon build` without `--packages-select`.
+To build the entire workspace, leave out `--packages-select`. Re-source `./setup.bash` after a build that adds new packages or executables. `servo_sim` is installed as a copy rather than a symlink, so rebuild after editing it.
 
 ## Running the simulation
 
-Start the simulation using a launch file from this package. Replace `<launch_file>` with an available launch file name from the `launch/` directory:
-
 ```bash
-# example (replace with an actual file). From workspace root after sourcing:
-ros2 launch r2_sim <launch_file>.launch.py
+ros2 launch r2_sim launch_sim.launch.py
 ```
 
-Check the `launch/` directory to see what entry points are available. Launch files may bring up the simulator, spawn the robot, start controllers, and enable visualization.
+| argument | default | meaning |
+| --- | --- | --- |
+| `world` | `worlds/obstacles.world` | Gazebo world to load |
+| `servo_device` | `sim` | `sim`: emulate the dome servos the real device isn't publishing (all of them if there's no device). `real`: emulate none; only the real device drives them (see below) |
+
+## Servo joints
+
+The panels and utility arms are the joints tagged `<astromech:servo>` in `r2_description`. In Gazebo they're driven in two ways:
+
+- **Dome panels (`pp*`, `p*`):** each one has its own Gazebo `JointPositionController` in velocity mode. It moves the panel at a constant speed to its target, like the real servo, and holds it closed from spawn. The joints and their speeds are listed in `config/dome_servos.yaml`:
+
+  ```yaml
+  pp1_joint: {velocity: 16.0}   # rad/s; 16.0 opens 0 -> pi/2 in about 100 ms, like the real servos
+  ```
+
+  `urdf/gz_ros2_control.xacro` generates one controller per entry, with commands on `/servo/<joint>/cmd_pos`. The launch file bridges those topics from ROS. To change a panel's speed, edit its entry and rebuild.
+- **Body panels and utility arms (`bf*`, `br*`, `*_utility_arm`):** held closed by the `servo_pos` controller (`position_controllers/JointGroupPositionController`). Its joint list in `config/sim_controllers.yaml` is the single source for these joints. On the real robot nothing drives them.
+
+A joint must be in only one of the two lists.
+
+On the real robot the dome panels are driven by a separate device on the network, `r2_domeplayer`. It takes commands on `/dome/joint_command` and publishes `/dome/joint_states`, both as `sensor_msgs/JointState` in radians. The sim uses the same topics:
+
+```
+/dome/joint_command ──> servo device (servo_sim emulator, or the real device)
+                                │
+                        /dome/joint_states ──> joint_state_publisher ──> /joint_states
+                                │
+                         servo_sim mirror ──> /servo/<joint>/cmd_pos (dome panels)
+                                          └─> /servo_pos/commands (body, arms) ──> Gazebo
+```
+
+`servo_sim` (`r2_sim/servo_sim.py`) does two things:
+
+- **Mirror (always on):** sends `/dome/joint_states` to Gazebo as soon as each message arrives, so Gazebo follows whatever the servo device reports. Dome panels go to their own controllers; any other reported joint goes to `servo_pos`. Joints that are never reported stay closed (0).
+- **Emulate (`servo_device:=sim`):** follows the device's contract. The servos are the `<astromech:servo>` joints on the dome, taken from `/robot_description`. Commands can name a joint as `pp1` or `pp1_joint`. Positions are clamped to the URDF `<limit>`, and the clamp is logged. Unknown joints are refused (`unknown joint`). The commanded targets are published on `/dome/joint_states` at 10 Hz, and immediately on each command.
+
+  If a real dome device is on the network, the emulator fills in only for it. Any joint the device has reported on `/dome/joint_states` within the last second (`claim_timeout`) is left out of the emulator's messages, so each joint has exactly one source. This matters while the device has only some of its servos configured. The emulator recognises its own messages by `header.frame_id: servo_sim`; the device leaves the field empty. While a joint is muted, its target follows the device's reported position, so if the device stops reporting it, emulation resumes from there without a jump. The node logs each switch.
+
+`/joint_states` reports the servo device's view, which is the commanded target, as on the real robot. It does not report Gazebo's measured panel positions.
+
+Move a panel:
+
+```bash
+ros2 topic pub --once /dome/joint_command sensor_msgs/msg/JointState "{name: [pp1], position: [1.2]}"
+```
+
+## Hardware in the loop: the real dome device with the sim
+
+With the default `servo_device:=sim`, a real device on the network drives the joints it reports, and the emulator covers the rest (see above). To have only the real device drive the panels, with no emulation at all:
+
+```bash
+ros2 launch r2_sim launch_sim.launch.py servo_device:=real
+```
+
+The real device takes `/dome/joint_command`, and its `/dome/joint_states` drives both Gazebo and `/joint_states`. Either way, the device reads its joint limits from `/robot_description`, so **the robot's own stack (`launch_robot.launch.py`) must not be running**: there must be only one `robot_state_publisher` and one source of `/joint_states`.
+
+There are two ways to put the device on the laptop's graph:
+
+1. **Through the robot's router (no device change).** On the robot, start only the Zenoh router (`ros2 launch r2_bringup launch_zenoh_router.launch.py`). The laptop's router already connects to it through `R2_ZENOH_CONNECT`, and the device stays pointed at the robot.
+2. **Directly to the laptop's router.** Point the device's Zenoh endpoint at the laptop (`tcp/<laptop>:7447`) in its `ros` config. The robot can then be off. Point the device back at the robot afterwards.
+
+Check that the device is present with `ros2 node list`, which should show `/r2_dome`.
 
 ## Debugging and logs
 
 - Use `ros2 topic list` and `ros2 node info` to inspect running topics and nodes.
-- Simulator logs (Gazebo/Ignition) are typically printed to the terminal where the simulator is launched.
-- If controllers fail to start, examine controller manager logs and parameter YAML files in `config/`.
+- `ros2 control list_controllers` shows whether `joint_broad`, `diff_cont`, `dome_controller`, `ankle_pos` and `servo_pos` are active.
+- Simulator logs are printed to the terminal where the simulation is launched.
+- If controllers fail to start, examine the controller manager logs and the parameter YAML files in `config/`.
 
 ## Contributing
 
 If you plan to add or modify simulation assets:
 
-- Keep models and mesh assets organized under `models/` or `urdf/`.
-- Add or update launch files in `launch/` and document their purpose.
+- Keep sim-only description changes in `urdf/gz_ros2_control.xacro`; the robot itself is described in `r2_description`.
+- Add or update launch files in `launch/` and document their purpose here.
 - Add parameter files under `config/` and include example usage in the corresponding launch file.
 
-Please follow the repository's coding and contribution guidelines (if present) and run `colcon build` before submitting changes.
+Run `colcon build --symlink-install` before submitting changes.
 
 ## License and contact
 

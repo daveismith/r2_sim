@@ -1,4 +1,5 @@
 import os
+import yaml
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -7,7 +8,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 
 from launch_ros.actions import Node
 from math import radians
@@ -99,6 +100,54 @@ def generate_launch_description():
         arguments=["dome_controller"],
     )
 
+    servo_pos_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["servo_pos"],
+    )
+
+    # Servo joints: servo_sim mirrors /dome/joint_states into Gazebo (dome panels through
+    # their per-joint controllers, the rest through servo_pos), and with servo_device:=sim
+    # also emulates the dome servo device. With servo_device:=real the real device on the
+    # network provides /dome/joint_states instead.
+    servo_device = LaunchConfiguration('servo_device')
+
+    servo_device_arg = DeclareLaunchArgument(
+        'servo_device',
+        default_value='sim',
+        choices=['sim', 'real'],
+        description='sim: emulate the dome servos a real device on the network is not publishing '
+                    '(all of them without a device); real: no emulation, the device drives them'
+        )
+
+    sim_controllers = os.path.join(get_package_share_directory(package_name),'config','sim_controllers.yaml')
+    with open(sim_controllers) as f:
+        controller_joints = yaml.safe_load(f)['servo_pos']['ros__parameters']['joints']
+
+    dome_servos = os.path.join(get_package_share_directory(package_name),'config','dome_servos.yaml')
+    with open(dome_servos) as f:
+        gz_joints = list(yaml.safe_load(f))
+
+    # Commands for the dome panels' Gazebo JointPositionControllers (see gz_ros2_control.xacro)
+    servo_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="servo_bridge",
+        arguments=[f'/servo/{j}/cmd_pos@std_msgs/msg/Float64]gz.msgs.Double' for j in gz_joints]
+    )
+
+    servo_sim = Node(
+        package=package_name,
+        executable="servo_sim",
+        output='screen',
+        parameters=[{
+            'controller_joints': controller_joints,
+            'gz_joints': gz_joints,
+            'emulate': PythonExpression(["'", servo_device, "' == 'sim'"]),
+            'use_sim_time': True,
+        }]
+    )
+
     dome_teleop = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory(bringup_package_name),'launch','dome_teleop.launch.py'
@@ -166,6 +215,7 @@ def generate_launch_description():
                 diff_drive_spawner,
                 dome_controller_spawner,
                 ankle_pos_spawner,
+                servo_pos_spawner,
             ],
         )
     )
@@ -185,14 +235,17 @@ def generate_launch_description():
         joystick,
         twist_mux,
         world_arg,
+        servo_device_arg,
         gazebo,
         spawn_entity,
         delayed_joint_broad_spawner,
         delayed_controller_spawners,
         delayed_set_angles,
         joint_states,
+        servo_sim,
         dome_teleop,
         web_interface,
         ros_gz_bridge,
         ros_gz_image_bridge,
+        servo_bridge,
     ])

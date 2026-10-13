@@ -3,6 +3,14 @@
 # The sim model can't represent the closed leg/shoulder loop, so left_shoulder_joint
 # doesn't exist and the ankle/center foot joints are real (non-mimic) joints driven
 # by ankle_pos. Publish the joints that actually exist in sim.
+#
+# The servo joints (<astromech:servo> in r2_description) are not published here:
+# /joint_states gets them from /dome/joint_states, as on the real robot.
+controller_manager:
+  ros__parameters:
+    servo_pos:
+      type: position_controllers/JointGroupPositionController
+
 joint_broad:
   ros__parameters:
     joints:
@@ -15,3 +23,23 @@ joint_broad:
       - dome_joint
     interfaces:
       - position
+
+# Holds the body panels and utility arms closed; servo_sim feeds it from
+# /dome/joint_states. Nothing drives these joints on the real robot. This list is the
+# single source for them in sim: gz_ros2_control.xacro and launch_sim.launch.py both read
+# it from here. The dome panels are in dome_servos.yaml instead, since Gazebo drives
+# them at a per-joint servo speed.
+servo_pos:
+  ros__parameters:
+    joints:
+      # Body panels
+      - bf1_joint
+      - bf2_joint
+      - bf3_joint
+      - bf4_joint
+      - bf5_joint
+      - br1_joint
+      - br6_joint
+      # Utility arms
+      - upper_utility_arm_joint
+      - lower_utility_arm_joint

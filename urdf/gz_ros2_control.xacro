@@ -2,6 +2,47 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
     <xacro:if value="$(arg sim_mode)">
+        <!-- Body panels and utility arms come from the servo_pos controller's joint list,
+             so they're defined once -->
+        <xacro:property name="servo_joints"
+                        value="${xacro.load_yaml('$(find r2_sim)/config/sim_controllers.yaml')['servo_pos']['ros__parameters']['joints']}" />
+
+        <!-- Position-held servo joint, starting closed (0 is every servo's lower limit) -->
+        <xacro:macro name="servo_position_joints" params="joints">
+            <xacro:if value="${len(joints) > 0}">
+                <joint name="${joints[0]}">
+                    <command_interface name="position" />
+                    <state_interface name="position">
+                        <param name="initial_value">0.0</param>
+                    </state_interface>
+                    <state_interface name="velocity" />
+                </joint>
+                <xacro:servo_position_joints joints="${joints[1:]}" />
+            </xacro:if>
+        </xacro:macro>
+
+        <!-- Dome panels: Gazebo drives each one like a servo, at a constant speed to its target.
+             With use_velocity_commands, cmd_max is that speed in rad/s. Commands arrive on
+             /servo/<joint>/cmd_pos (bridged from ROS in launch_sim.launch.py). -->
+        <xacro:property name="dome_servos" value="${xacro.load_yaml('$(find r2_sim)/config/dome_servos.yaml')}" />
+
+        <xacro:macro name="dome_servo_controllers" params="joints">
+            <xacro:if value="${len(joints) > 0}">
+                <xacro:property name="velocity" value="${dome_servos[joints[0]]['velocity']}" />
+                <gazebo>
+                    <plugin name="gz::sim::systems::JointPositionController" filename="gz-sim-joint-position-controller-system">
+                        <joint_name>${joints[0]}</joint_name>
+                        <topic>/servo/${joints[0]}/cmd_pos</topic>
+                        <use_velocity_commands>true</use_velocity_commands>
+                        <cmd_max>${velocity}</cmd_max>
+                        <cmd_min>${-velocity}</cmd_min>
+                        <initial_position>0.0</initial_position>
+                    </plugin>
+                </gazebo>
+                <xacro:dome_servo_controllers joints="${joints[1:]}" />
+            </xacro:if>
+        </xacro:macro>
+
         <ros2_control name="GazeboSystem" type="system">
             <hardware>
                 <plugin>gz_ros2_control/GazeboSimSystem</plugin>
@@ -60,7 +101,10 @@
                 <state_interface name="velocity" />
                 <state_interface name="position" />
             </joint>
+            <xacro:servo_position_joints joints="${servo_joints}" />
         </ros2_control>
+
+        <xacro:dome_servo_controllers joints="${list(dome_servos.keys())}" />
 
         <gazebo>
             <plugin name="gz_ros2_control::GazeboSimROS2ControlPlugin" filename="libgz_ros2_control-system.so">

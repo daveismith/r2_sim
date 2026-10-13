@@ -38,4 +38,10 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  PROGRAMS r2_sim/servo_sim.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME servo_sim
+)
+
 ament_package()

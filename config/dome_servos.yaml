@@ -1,0 +1,26 @@
+# Dome panels in Gazebo: each is driven like the real servo, at a constant speed to its
+# commanded target (gz-sim JointPositionController with use_velocity_commands).
+#
+#   velocity: rad/s. 16.0 covers the 0 -> pi/2 travel in about 100 ms, like the real servos.
+#
+# This file is the single source for the dome servo joints in sim: gz_ros2_control.xacro
+# generates a controller per joint from it, and launch_sim.launch.py bridges each joint's
+# command topic (/servo/<joint>/cmd_pos) and passes the list to servo_sim.
+# These joints must not also be in servo_pos (sim_controllers.yaml).
+
+# Dome pie panels
+pp1_joint: {velocity: 16.0}
+pp2_joint: {velocity: 16.0}
+pp4_joint: {velocity: 16.0}
+pp5_joint: {velocity: 16.0}
+pp6_joint: {velocity: 16.0}
+
+# Dome lower panels
+p1_joint: {velocity: 16.0}
+p2_joint: {velocity: 16.0}
+p3_joint: {velocity: 16.0}
+p4_joint: {velocity: 16.0}
+p7_joint: {velocity: 16.0}
+p10_joint: {velocity: 16.0}
+p11_joint: {velocity: 16.0}
+p13_joint: {velocity: 16.0}
