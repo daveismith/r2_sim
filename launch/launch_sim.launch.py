@@ -6,6 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
@@ -186,6 +187,22 @@ def generate_launch_description():
                 )]), launch_arguments={'use_sim_time': 'true', 'robot_mode': 'sim'}.items()
     )
 
+    # personality:=false leaves out the personality stack (r2_affect and its adapters).
+    personality = LaunchConfiguration('personality')
+
+    personality_arg = DeclareLaunchArgument(
+        'personality',
+        default_value='true',
+        description='Start the personality stack (r2_affect mood model; see r2_bringup personality.launch.py)'
+        )
+
+    personality_stack = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([os.path.join(
+                    get_package_share_directory(bringup_package_name),'launch','personality.launch.py'
+                )]), launch_arguments={'use_sim_time': 'true'}.items(),
+                condition=IfCondition(personality)
+    )
+
     angle = 18
     rads = radians(angle)
 
@@ -258,6 +275,7 @@ def generate_launch_description():
         world_arg,
         gui_arg,
         servo_device_arg,
+        personality_arg,
         gazebo,
         spawn_entity,
         delayed_joint_broad_spawner,
@@ -270,4 +288,5 @@ def generate_launch_description():
         ros_gz_bridge,
         ros_gz_image_bridge,
         servo_bridge,
+        personality_stack,
     ])
