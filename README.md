@@ -4,6 +4,7 @@ This package contains the simulation-only parts of the R2 ROS 2 project: the Gaz
 
 ## Contents
 
+- `launch/sim_foxglove.launch.py` — the sim headless, with a `foxglove_bridge` on sim time for viewing it in Foxglove.
 - `launch/launch_sim.launch.py` — starts Gazebo, spawns the robot, starts the controllers, and runs the shared bringup pieces (joystick, twist_mux, dome teleop, joint states, web interface).
 - `urdf/gz_ros2_control.xacro` — the sim `<ros2_control>` block and the `gz_ros2_control` plugin, included by `r2_bringup`'s `robot.urdf.xacro` when `sim_mode` is true.
 - `config/sim_controllers.yaml` — sim overrides on top of `r2_bringup/config/my_controllers.yaml`, including the `servo_pos` joint list (body panels and utility arms).
@@ -39,7 +40,22 @@ ros2 launch r2_sim launch_sim.launch.py
 | argument | default | meaning |
 | --- | --- | --- |
 | `world` | `worlds/obstacles.world` | Gazebo world to load |
+| `gui` | `true` | `false` runs the Gazebo server headless, for machines without a display |
 | `servo_device` | `sim` | `sim`: emulate the dome servos the real device isn't publishing (all of them if there's no device). `real`: emulate none; only the real device drives them (see below) |
+
+### Viewing the sim in Foxglove
+
+Without a display (the dev container), run Gazebo headless and view the robot in Foxglove:
+
+```bash
+ros2 launch r2_sim sim_foxglove.launch.py
+```
+
+It runs `launch_sim.launch.py gui:=false` (passing through `world` and `servo_device`) and a
+`foxglove_bridge` on sim time on `foxglove_port` (default 8766, since the dev container's
+live-robot bridge holds 8765). Connect Foxglove to `ws://localhost:8766`, turn on
+`/robot_description` in the 3D panel, set the display frame to `base_link`, and under Scene set
+**Mesh up axis to Z** (R2's meshes are Z-up; Foxglove's Y-up default draws them rotated 90°).
 
 ## Servo joints
 

@@ -61,11 +61,25 @@ def generate_launch_description():
         description='World to load'
         )
 
+    # gui:=false runs only the Gazebo server, for machines without a display (the dev
+    # container); view the robot in Foxglove instead (sim_foxglove.launch.py).
+    # --headless-rendering lets the server's ogre2 sensors render through EGL.
+    gui = LaunchConfiguration('gui')
+
+    gui_arg = DeclareLaunchArgument(
+        'gui',
+        default_value='true',
+        choices=['true', 'false'],
+        description='Start the Gazebo GUI; false runs the server headless'
+        )
+
+    server_args = PythonExpression(["'' if '", gui, "' == 'true' else '-s --headless-rendering '"])
+
     # Include the Gazebo launch file, provided by the ros_gz_sim package
     gazebo = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')]),
-                    launch_arguments={'gz_args': ['-r -v4 ', world], 'on_exit_shutdown': 'true'}.items()
+                    launch_arguments={'gz_args': ['-r -v4 ', server_args, world], 'on_exit_shutdown': 'true'}.items()
              )
 
     # Run the spawner node from the ros_gz_sim package. The entity name doesn't really matter if you only have a single robot.
@@ -242,6 +256,7 @@ def generate_launch_description():
         joystick,
         twist_mux,
         world_arg,
+        gui_arg,
         servo_device_arg,
         gazebo,
         spawn_entity,
