@@ -15,6 +15,10 @@
   <depend>gz_ros2_control</depend>
   <depend>r2_web_interface</depend>
 
+  <!-- launch_sim.launch.py: Gazebo itself, the topic bridges and the camera image bridge -->
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_image</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
