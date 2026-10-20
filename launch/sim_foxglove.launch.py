@@ -14,6 +14,10 @@ from launch.substitutions import LaunchConfiguration
 # The bridge defaults to port 8766 because the dev container's `foxglove` service, a
 # wall-clock bridge for the live robot, already holds 8765. In Foxglove, connect to
 # ws://localhost:8766.
+# Regex list for foxglove_bridge's service_whitelist: everything but a real dome device.
+NOT_THE_DOME = "['^(?!/r2_dome/).*']"
+
+
 def generate_launch_description():
     sim = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
@@ -30,7 +34,10 @@ def generate_launch_description():
                     get_package_share_directory('r2_bringup'), 'launch', 'foxglove.launch.py'
                 )]), launch_arguments={'use_sim_time': 'true',
                                        'port': LaunchConfiguration('foxglove_port'),
-                                       'name': 'foxglove_bridge_sim'}.items()
+                                       'name': 'foxglove_bridge_sim',
+                                       # a Service Call panel on the sim's bridge must not
+                                       # reach a real dome device sharing the graph
+                                       'service_whitelist': NOT_THE_DOME}.items()
     )
 
     return LaunchDescription([
