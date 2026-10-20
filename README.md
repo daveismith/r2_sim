@@ -115,6 +115,10 @@ There are two ways to put the device on the laptop's graph:
 
 Check that the device is present with `ros2 node list`, which should show `/r2_dome`.
 
+## Personality
+
+`launch_sim.launch.py` includes r2_bringup's `personality.launch.py` (`personality:=false` leaves it out) with `dome_mock:=true`: the dome mock of `r2_mocks` runs as the dome device and the expression arbiters (`/led_arbiter`, `/magic_arbiter`; claim services `/expression/claim/led` and `/expression/claim/magic`) talk to it. `ros2 run r2_expression express status` shows the channels; see the `r2_expression` README for the `express` CLI. The mock's name is the `dome_mock_name` argument (default `r2_dome`, also on `sim_foxglove.launch.py`). When a real dome device is on the same graph (the workbench), launch the sim with `dome_mock_name:=dome_mock` so the mock does not collide with `/r2_dome`; on a machine without a dome the default keeps the device's real name so everything else is identical.
+
 ## Debugging and logs
 
 - Use `ros2 topic list` and `ros2 node info` to inspect running topics and nodes.

@@ -16,6 +16,7 @@
   <depend>r2_web_interface</depend>
 
   <!-- launch_sim.launch.py: Gazebo itself, the topic bridges and the camera image bridge -->
+  <exec_depend>r2_mocks</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>ros_gz_image</exec_depend>

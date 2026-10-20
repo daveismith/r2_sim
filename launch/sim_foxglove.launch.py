@@ -20,7 +20,9 @@ def generate_launch_description():
                     get_package_share_directory('r2_sim'), 'launch', 'launch_sim.launch.py'
                 )]), launch_arguments={'gui': 'false',
                                        'world': LaunchConfiguration('world'),
-                                       'servo_device': LaunchConfiguration('servo_device')}.items()
+                                       'servo_device': LaunchConfiguration('servo_device'),
+                                       'dome_mock_name':
+                                           LaunchConfiguration('dome_mock_name')}.items()
     )
 
     foxglove = IncludeLaunchDescription(
@@ -40,6 +42,10 @@ def generate_launch_description():
             'servo_device',
             default_value='sim',
             choices=['sim', 'real'],
+            description='See launch_sim.launch.py'),
+        DeclareLaunchArgument(
+            'dome_mock_name',
+            default_value='r2_dome',
             description='See launch_sim.launch.py'),
         DeclareLaunchArgument(
             'foxglove_port',
