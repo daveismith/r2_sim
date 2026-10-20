@@ -196,13 +196,14 @@ def generate_launch_description():
         description='Start the personality stack (r2_affect mood model; '
                     'see r2_bringup personality.launch.py)')
 
-    # The sim runs the dome mock as the device; dome_mock_name:=dome_mock avoids a collision
-    # with a real /r2_dome on the same graph.
+    # The sim runs the dome mock as the device. It is /dome_mock by default so that it never
+    # collides with a real /r2_dome on the same graph (the workbench); its text and level
+    # topics are /dome_mock/dome/... for the same reason.
     dome_mock_name_arg = DeclareLaunchArgument(
         'dome_mock_name',
-        default_value='r2_dome',
-        description='Node name of the dome mock; use dome_mock when a real /r2_dome '
-                    'is on the graph')
+        default_value='dome_mock',
+        description='Node name of the dome mock. Pass r2_dome only on a machine with no real '
+                    'dome, if you want the device\'s real name')
 
     personality_stack = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(

@@ -45,7 +45,7 @@ def generate_launch_description():
             description='See launch_sim.launch.py'),
         DeclareLaunchArgument(
             'dome_mock_name',
-            default_value='r2_dome',
+            default_value='dome_mock',
             description='See launch_sim.launch.py'),
         DeclareLaunchArgument(
             'foxglove_port',
