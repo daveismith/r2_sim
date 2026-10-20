@@ -14,7 +14,7 @@ from launch.substitutions import LaunchConfiguration
 # The bridge defaults to port 8766 because the dev container's `foxglove` service, a
 # wall-clock bridge for the live robot, already holds 8765. In Foxglove, connect to
 # ws://localhost:8766.
-# Regex list for foxglove_bridge's service_whitelist: everything but a real dome device.
+# foxglove_bridge service_whitelist: everything but a real dome device on the graph.
 NOT_THE_DOME = "['^(?!/r2_dome/).*']"
 
 
