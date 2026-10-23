@@ -1,0 +1,18 @@
+"""Launch-argument test (no ROS graph): launch_sim.launch.py declares the converter cap."""
+
+import importlib.util
+import os
+
+from launch.actions import DeclareLaunchArgument
+
+LAUNCH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      'launch', 'launch_sim.launch.py')
+
+
+def test_sim_declares_personality_max_speed():
+    spec = importlib.util.spec_from_file_location('launch_sim', LAUNCH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    args = {a.name: a for a in module.generate_launch_description().entities
+            if isinstance(a, DeclareLaunchArgument)}
+    assert ''.join(t.text for t in args['personality_max_speed_rad_s'].default_value) == '2.0'

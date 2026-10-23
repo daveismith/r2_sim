@@ -169,10 +169,19 @@ def generate_launch_description():
         }]
     )
 
+    personality_max_speed_arg = DeclareLaunchArgument(
+        'personality_max_speed_rad_s',
+        default_value='2.0',
+        description='Cap (rad/s) the dome twist converter applies to '
+                    'the personality dome commands (joystick and Foxglove are not capped)')
+
     dome_teleop = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory(bringup_package_name),'launch','dome_teleop.launch.py'
-                )]), launch_arguments={'use_sim_time': 'true'}.items()
+                )]), launch_arguments={
+                    'use_sim_time': 'true',
+                    'personality_max_speed_rad_s':
+                        LaunchConfiguration('personality_max_speed_rad_s')}.items()
     )
 
     joint_states = IncludeLaunchDescription(
@@ -289,6 +298,7 @@ def generate_launch_description():
         servo_device_arg,
         personality_arg,
         dome_mock_name_arg,
+        personality_max_speed_arg,
         gazebo,
         spawn_entity,
         delayed_joint_broad_spawner,

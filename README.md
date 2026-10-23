@@ -41,6 +41,7 @@ ros2 launch r2_sim launch_sim.launch.py
 | --- | --- | --- |
 | `world` | `worlds/obstacles.world` | Gazebo world to load |
 | `gui` | `true` | `false` runs the Gazebo server headless, for machines without a display |
+| `personality_max_speed_rad_s` | `2.0` | cap (rad/s) the dome twist converter applies to the personality dome commands |
 | `servo_device` | `sim` | `sim`: emulate the dome servos the real device isn't publishing (all of them if there's no device). `real`: emulate none; only the real device drives them (see below) |
 
 ### Viewing the sim in Foxglove
