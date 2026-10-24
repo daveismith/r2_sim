@@ -214,6 +214,15 @@ def generate_launch_description():
         description='Node name of the dome mock. Pass r2_dome only on a machine with no real '
                     'dome, if you want the device\'s real name')
 
+    sound_backend_arg = DeclareLaunchArgument(
+        'sound_backend',
+        default_value='wav',
+        choices=['wav', 'sounddevice', 'null'],
+        description='sound_player backend. wav (default) writes what would play under '
+                    '/ws/.audio/out; sounddevice plays through PortAudio, which in the dev '
+                    'container means PulseAudio on the Mac via PULSE_SERVER (r2_bringup '
+                    'README, "Sound on the Mac", route 2)')
+
     personality_stack = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory(bringup_package_name),
@@ -221,9 +230,10 @@ def generate_launch_description():
                 )]), launch_arguments={
                     'use_sim_time': 'true', 'dome_mock': 'true',
                     'dome_mock_name': LaunchConfiguration('dome_mock_name'),
-                    # no speaker in the sim: the wav backend writes /ws/.audio/out/, and the
-                    # level goes to the mock, whose topic follows its name
-                    'sound_backend': 'wav',
+                    # no speaker in the sim by default: the wav backend writes
+                    # /ws/.audio/out/ (sound_backend:=sounddevice for PulseAudio on the Mac);
+                    # the level goes to the mock, whose topic follows its name
+                    'sound_backend': LaunchConfiguration('sound_backend'),
                     'dome_level_topic': [
                         '/', LaunchConfiguration('dome_mock_name'), '/dome/audio/level']
                 }.items(),
@@ -305,6 +315,7 @@ def generate_launch_description():
         personality_arg,
         dome_mock_name_arg,
         personality_max_speed_arg,
+        sound_backend_arg,
         gazebo,
         spawn_entity,
         delayed_joint_broad_spawner,

@@ -26,7 +26,9 @@ def generate_launch_description():
                                        'world': LaunchConfiguration('world'),
                                        'servo_device': LaunchConfiguration('servo_device'),
                                        'dome_mock_name':
-                                           LaunchConfiguration('dome_mock_name')}.items()
+                                           LaunchConfiguration('dome_mock_name'),
+                                       'sound_backend':
+                                           LaunchConfiguration('sound_backend')}.items()
     )
 
     foxglove = IncludeLaunchDescription(
@@ -53,6 +55,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'dome_mock_name',
             default_value='dome_mock',
+            description='See launch_sim.launch.py'),
+        DeclareLaunchArgument(
+            'sound_backend',
+            default_value='wav',
+            choices=['wav', 'sounddevice', 'null'],
             description='See launch_sim.launch.py'),
         DeclareLaunchArgument(
             'foxglove_port',
