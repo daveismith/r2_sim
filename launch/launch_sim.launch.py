@@ -220,7 +220,13 @@ def generate_launch_description():
                     'launch', 'personality.launch.py'
                 )]), launch_arguments={
                     'use_sim_time': 'true', 'dome_mock': 'true',
-                    'dome_mock_name': LaunchConfiguration('dome_mock_name')}.items(),
+                    'dome_mock_name': LaunchConfiguration('dome_mock_name'),
+                    # no speaker in the sim: the wav backend writes /ws/.audio/out/, and the
+                    # level goes to the mock, whose topic follows its name
+                    'sound_backend': 'wav',
+                    'dome_level_topic': [
+                        '/', LaunchConfiguration('dome_mock_name'), '/dome/audio/level']
+                }.items(),
                 condition=IfCondition(personality)
     )
 

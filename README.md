@@ -42,6 +42,7 @@ ros2 launch r2_sim launch_sim.launch.py
 | `world` | `worlds/obstacles.world` | Gazebo world to load |
 | `gui` | `true` | `false` runs the Gazebo server headless, for machines without a display |
 | `personality_max_speed_rad_s` | `2.0` | cap (rad/s) the dome twist converter applies to the personality dome commands |
+| `dome_mock_name` | `dome_mock` | node name of the dome mock; the player's level topic is `/<dome_mock_name>/dome/audio/level` |
 | `servo_device` | `sim` | `sim`: emulate the dome servos the real device isn't publishing (all of them if there's no device). `real`: emulate none; only the real device drives them (see below) |
 
 ### Viewing the sim in Foxglove
@@ -119,6 +120,8 @@ Check that the device is present with `ros2 node list`, which should show `/r2_d
 ## Personality
 
 `launch_sim.launch.py` includes r2_bringup's `personality.launch.py` (`personality:=false` leaves it out) with `dome_mock:=true`: the dome mock of `r2_mocks` runs as the dome device and the expression arbiters (`/led_arbiter`, `/magic_arbiter`; claim services `/expression/claim/led` and `/expression/claim/magic`) talk to it. `ros2 run r2_expression express status` shows the channels; see the `r2_expression` README for the `express` CLI. The mock's name is the `dome_mock_name` argument (default `dome_mock`, also on `sim_foxglove.launch.py`), so it never collides with a real `/r2_dome` on the same graph (the workbench): its services are `/dome_mock/leds/...`, its text and level topics `/dome_mock/dome/text/line0|1` and `/dome_mock/dome/audio/level`, and `express dome` sends to it by default. Pass `dome_mock_name:=r2_dome` only on a machine with no real dome, if you want the device's real name.
+
+The sim also starts `sound_player` with the `wav` backend (there is no speaker): what would play is written under `/ws/.audio/out/`, and the level goes to `/<dome_mock_name>/dome/audio/level`, which the mock shows as `level=N`.
 
 ## Debugging and logs
 
