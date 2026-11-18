@@ -142,3 +142,15 @@ Run `colcon build --symlink-install` before submitting changes.
 This folder follows the same license as the parent repository. If in doubt, check the workspace root for licensing information.
 
 For questions about the simulation package, contact the project maintainers or open an issue in the main project repository.
+
+## The dome floor in the sim
+
+Gazebo's dome is an ideal velocity joint: no dead band, no dead time, no coast. The shipped
+`expression.yaml` carries the droid's dome floor (0.75 rad/s and a retry pulse sized for a
+motor that does nothing for its first 0.3 s), which overshoots on that joint. So
+`launch_sim.launch.py` writes a copy of the shipped file with `defaults.dome.min_speed_rad_s`
+0.6 and `floor: {coast_rad: 0.12, speed_rad_s: 0.35}` (`SIM_DOME_*` in the launch file) to a
+temporary directory, passes it to the personality stack as `expression_config`, and gives the
+dome converter the same 0.6. Everything else in the file is the shipped one. The droid's own
+dome response is modelled by `r2_mocks`' `DomePlant` preset `measured_2026_11`, which the unit
+tests use.
