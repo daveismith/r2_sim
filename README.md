@@ -8,7 +8,7 @@ This package contains the simulation-only parts of the R2 ROS 2 project: the Gaz
 - `launch/launch_sim.launch.py` — starts Gazebo, spawns the robot, starts the controllers, and runs the shared bringup pieces (joystick, twist_mux, dome teleop, joint states, web interface).
 - `urdf/gz_ros2_control.xacro` — the sim `<ros2_control>` block and the `gz_ros2_control` plugin, included by `r2_bringup`'s `robot.urdf.xacro` when `sim_mode` is true.
 - `config/sim_controllers.yaml` — sim overrides on top of `r2_bringup/config/my_controllers.yaml`, including the `servo_pos` joint list (body panels and utility arms).
-- `config/dome_servos.yaml` — the dome panel joints and their speeds in Gazebo.
+- `config/dome_servos.yaml` — the dome panel and holo projector joints and their speeds in Gazebo.
 - `config/gz_bridge.yaml` — topics bridged between Gazebo and ROS.
 - `worlds/` — simulation worlds (`obstacles.world` is the default, `empty.world`).
 - `r2_sim/servo_sim.py` — servo mirror and emulator (see [Servo joints](#servo-joints)).
@@ -60,15 +60,17 @@ live-robot bridge holds 8765). Connect Foxglove to `ws://localhost:8766`, turn o
 
 ## Servo joints
 
-The panels and utility arms are the joints tagged `<astromech:servo>` in `r2_description`. In Gazebo they're driven in two ways:
+The panels, utility arms and holo projectors are the joints tagged `<astromech:servo>` in `r2_description`. In Gazebo they're driven in two ways:
 
-- **Dome panels (`pp*`, `p*`):** each one has its own Gazebo `JointPositionController` in velocity mode. It moves the panel at a constant speed to its target, like the real servo, and holds it closed from spawn. The joints and their speeds are listed in `config/dome_servos.yaml`:
+- **Dome panels (`pp*`, `p*`) and holo projectors (`hp_*`):** each one has its own Gazebo `JointPositionController` in velocity mode. It moves the joint at a constant speed to its target, like the real servo, and holds it at 0 from spawn (closed for a panel, centred for a holo). The joints and their speeds are listed in `config/dome_servos.yaml`:
 
   ```yaml
   pp1_joint: {velocity: 16.0}   # rad/s; 16.0 opens 0 -> pi/2 in about 100 ms, like the real servos
   ```
 
-  `urdf/gz_ros2_control.xacro` generates one controller per entry, with commands on `/servo/<joint>/cmd_pos`. The launch file bridges those topics from ROS. To change a panel's speed, edit its entry and rebuild.
+  `urdf/gz_ros2_control.xacro` generates one controller per entry, with commands on `/servo/<joint>/cmd_pos`. The launch file bridges those topics from ROS. To change a joint's speed, edit its entry and rebuild.
+
+  Each holo projector has two joints, `<name>_x_joint` and `<name>_y_joint` (`hp_front`, `hp_top`, `hp_rear`). 0 is centred, and each travels +-25 degrees. They run at 4.0 rad/s, so the full 50 degrees takes about 0.2 s. They sit on the dome, but their parent links are the projector cowl and gimbal, not `dome` itself.
 - **Body panels and utility arms (`bf*`, `br*`, `*_utility_arm`):** held closed by the `servo_pos` controller (`position_controllers/JointGroupPositionController`). Its joint list in `config/sim_controllers.yaml` is the single source for these joints. On the real robot nothing drives them.
 
 A joint must be in only one of the two lists.
@@ -86,8 +88,8 @@ On the real robot the dome panels are driven by a separate device on the network
 
 `servo_sim` (`r2_sim/servo_sim.py`) does two things:
 
-- **Mirror (always on):** sends `/dome/joint_states` to Gazebo as soon as each message arrives, so Gazebo follows whatever the servo device reports. Dome panels go to their own controllers; any other reported joint goes to `servo_pos`. Joints that are never reported stay closed (0).
-- **Emulate (`servo_device:=sim`):** follows the device's contract. The servos are the `<astromech:servo>` joints on the dome, taken from `/robot_description`. Commands can name a joint as `pp1` or `pp1_joint`. Positions are clamped to the URDF `<limit>`, and the clamp is logged. Unknown joints are refused (`unknown joint`); each refused joint is logged only the first time. The commanded targets are published on `/dome/joint_states` at 10 Hz, and immediately on each command.
+- **Mirror (always on):** sends `/dome/joint_states` to Gazebo as soon as each message arrives, so Gazebo follows whatever the servo device reports. Dome panels go to their own controllers; any other reported joint goes to `servo_pos`. Joints that are never reported stay at 0.
+- **Emulate (`servo_device:=sim`):** follows the device's contract. The servos are the `<astromech:servo>` joints whose parent link is `dome` or any link below it (found by walking the URDF's joint tree), taken from `/robot_description`. Body servos are not included. Every servo starts at 0 clamped into its limits: closed for a panel (lower limit 0), centred for a holo. Commands can name a joint as `pp1` or `pp1_joint`, `hp_front_x` or `hp_front_x_joint`. Positions are clamped to the URDF `<limit>`, and the clamp is logged. Unknown joints are refused (`unknown joint`); each refused joint is logged only the first time. The commanded targets are published on `/dome/joint_states` at 10 Hz, and immediately on each command.
 
   If a real dome device is on the network, the emulator fills in only for it. Any joint the device has reported on `/dome/joint_states` within the last second (`claim_timeout`) is left out of the emulator's messages, so each joint has exactly one source. This matters while the device has only some of its servos configured. The emulator recognises its own messages by `header.frame_id: servo_sim`; the device leaves the field empty. While a joint is muted, its target follows the device's reported position, so if the device stops reporting it, emulation resumes from there without a jump. The node logs each switch.
 

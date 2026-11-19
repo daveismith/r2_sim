@@ -7,7 +7,7 @@
         <xacro:property name="servo_joints"
                         value="${xacro.load_yaml('$(find r2_sim)/config/sim_controllers.yaml')['servo_pos']['ros__parameters']['joints']}" />
 
-        <!-- Position-held servo joint, starting closed (0 is every servo's lower limit) -->
+        <!-- Position-held servo joint, starting closed (0 is the lower limit of every servo_pos joint) -->
         <xacro:macro name="servo_position_joints" params="joints">
             <xacro:if value="${len(joints) > 0}">
                 <joint name="${joints[0]}">
@@ -21,7 +21,7 @@
             </xacro:if>
         </xacro:macro>
 
-        <!-- Dome panels: Gazebo drives each one like a servo, at a constant speed to its target.
+        <!-- Dome panels and holo projectors: Gazebo drives each one like a servo, at a constant speed to its target.
              With use_velocity_commands, cmd_max is that speed in rad/s. Commands arrive on
              /servo/<joint>/cmd_pos (bridged from ROS in launch_sim.launch.py). -->
         <xacro:property name="dome_servos" value="${xacro.load_yaml('$(find r2_sim)/config/dome_servos.yaml')}" />

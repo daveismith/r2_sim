@@ -5,13 +5,18 @@ Mirror (always): /dome/joint_states -> Gazebo, so the servo joints follow whatev
 servo device reports. Each joint goes where it is driven: the dome panels (gz_joints) to
 their own Gazebo JointPositionController on /servo/<joint>/cmd_pos, which moves them at
 servo speed; the rest (controller_joints) to the servo_pos ros2_control controller on
-/servo_pos/commands. Joints it never hears about stay at 0 (closed).
+/servo_pos/commands. Joints it never hears about stay at 0 (closed for a panel, centred for
+a holo projector).
 
 Emulate (emulate:=true): stands in for the dome servo device (r2_domeplayer) with the same
 contract: /dome/joint_command in (sensor_msgs/JointState, radians, `pp1` or `pp1_joint`),
 clamped to the URDF <limit>, and /dome/joint_states out at publish_rate (and on every
 command) carrying the commanded target. Its servos are the <astromech:servo> joints on the
-dome, read from /robot_description, the same way the device decides.
+dome (parent link `dome` or any link below it, such as the holo projector gimbals), read
+from /robot_description. Every servo starts at 0 clamped into its limits: closed for a
+panel (lower = 0), centred for a holo. The device (r2_domeplayer) was written when every
+dome servo's parent link was `dome` and its rest was its lower limit; whether it treats the
+holo joints this way is not checked.
 
 A real device on the network may publish only some of the servos (the ones it has
 configured). The emulator fills in the rest: it watches /dome/joint_states, and any joint
@@ -38,8 +43,50 @@ OWN_FRAME_ID = 'servo_sim'   # marks the emulator's own /dome/joint_states messa
 
 
 def joint_key(name):
-    """Accept `pp1` or `pp1_joint`, as the device does."""
+    """Accept `pp1` or `pp1_joint` (`hp_front_x` or `hp_front_x_joint`), as the device does."""
     return name if name.endswith('_joint') else f'{name}_joint'
+
+
+def clamp(position, lower, upper):
+    return min(max(position, lower), upper)
+
+
+def start_position(lower, upper):
+    """Where a servo starts: 0 clamped into its limits (closed for a panel, centred for a holo)."""
+    return clamp(0.0, lower, upper)
+
+
+def dome_servo_limits(root):
+    """{joint name: (lower, upper)} of the <astromech:servo> joints on the dome.
+
+    On the dome means the joint's parent link is DEVICE_PARENT_LINK or a descendant of it
+    through other joints. Body servos (the dome's ancestors' side) are left out.
+    """
+    children = {}   # parent link -> child links
+    for joint in root.findall('joint'):
+        parent = joint.find('parent')
+        child = joint.find('child')
+        if parent is not None and child is not None:
+            children.setdefault(parent.get('link'), []).append(child.get('link'))
+    on_dome = {DEVICE_PARENT_LINK}
+    pending = [DEVICE_PARENT_LINK]
+    while pending:
+        for child in children.get(pending.pop(), []):
+            if child not in on_dome:
+                on_dome.add(child)
+                pending.append(child)
+
+    limits = {}
+    for joint in root.findall('joint'):
+        parent = joint.find('parent')
+        limit = joint.find('limit')
+        if joint.find(SERVO_TAG) is None or parent is None or limit is None:
+            continue
+        if parent.get('link') not in on_dome:
+            continue
+        limits[joint.get('name')] = (float(limit.get('lower', 0.0)),
+                                     float(limit.get('upper', 0.0)))
+    return limits
 
 
 class ServoSim(Node):
@@ -124,20 +171,12 @@ class ServoSim(Node):
             self.get_logger().error(f'robot_description is not valid XML: {e}')
             return
 
-        limits = {}
-        for joint in root.findall('joint'):
-            parent = joint.find('parent')
-            limit = joint.find('limit')
-            if joint.find(SERVO_TAG) is None or parent is None or limit is None:
-                continue
-            if parent.get('link') != DEVICE_PARENT_LINK:
-                continue
-            limits[joint.get('name')] = (float(limit.get('lower', 0.0)),
-                                         float(limit.get('upper', 0.0)))
+        limits = dome_servo_limits(root)
 
         self.limits = limits
-        # Start closed (lower limit); keep targets for joints that are still servos
-        self.targets = {j: self.targets.get(j, lo) for j, (lo, _) in limits.items()}
+        # Start at 0 clamped into the limits; keep targets for joints that are still servos
+        self.targets = {j: self.targets.get(j, start_position(lo, hi))
+                        for j, (lo, hi) in limits.items()}
         self.get_logger().info(f'emulating {len(limits)} servos: {", ".join(sorted(limits))}')
 
     def on_command(self, msg):
@@ -152,7 +191,7 @@ class ServoSim(Node):
                     self.get_logger().warn(f'{name}: refused, {reason} (logged once)')
                 continue
             lower, upper = self.limits[key]
-            position = min(max(msg.position[i], lower), upper)
+            position = clamp(msg.position[i], lower, upper)
             if position != msg.position[i]:
                 self.get_logger().info(
                     f'{name}: {msg.position[i]:.3f} clamped to {position:.3f} '
