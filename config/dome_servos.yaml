@@ -1,7 +1,10 @@
-# Dome panels in Gazebo: each is driven like the real servo, at a constant speed to its
-# commanded target (gz-sim JointPositionController with use_velocity_commands).
+# Dome servos in Gazebo (panels and holo projectors): each is driven like the real servo, at
+# a constant speed to its commanded target (gz-sim JointPositionController with use_velocity_commands).
 #
 #   velocity: rad/s. 16.0 covers the 0 -> pi/2 travel in about 100 ms, like the real servos.
+#
+#   Holo projector joints sweep their +-25 degree range in a few tenths of a second, so they
+#   use 4.0 rad/s (about 0.2 s for the full 50 degrees). They start centred (0).
 #
 # This file is the single source for the dome servo joints in sim: gz_ros2_control.xacro
 # generates a controller per joint from it, and launch_sim.launch.py bridges each joint's
@@ -24,3 +27,11 @@ p7_joint: {velocity: 16.0}
 p10_joint: {velocity: 16.0}
 p11_joint: {velocity: 16.0}
 p13_joint: {velocity: 16.0}
+
+# Holo projectors (dome; 0 = centred, +-25 degrees)
+hp_front_x_joint: {velocity: 4.0}
+hp_front_y_joint: {velocity: 4.0}
+hp_top_x_joint: {velocity: 4.0}
+hp_top_y_joint: {velocity: 4.0}
+hp_rear_x_joint: {velocity: 4.0}
+hp_rear_y_joint: {velocity: 4.0}
